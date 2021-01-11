@@ -1,0 +1,79 @@
+%IIoT
+role nodeU (U,Gw: agent,
+            Hmac: hash_func,
+       Qca,Qg,Qu: public_key,
+       Dg,Du,Kug: symmetric_key,
+         SND,RCV: channel (dy))
+played_by U def=
+local
+State: nat,
+Idu,Idg,Certu,Certg,Su,Sg,Ts0,
+Ts1,Lt0,Lt1,N5,Au,Ag,H4:text,
+M5: message
+init State:= 0
+transition
+1. State = 0 /\ RCV(start) =|>
+  State':= 1 /\ N5' := new()
+             /\ Ag' := {Idg.Certg.Sg.Ts0.Lt0}_Qca
+             /\ Au' := {Idu.Certu.Su.Ts1.Lt1}_Qca
+             /\ H4' := Hmac(Kug.Idg.N5.Au)
+             /\ M5' := {Idg.N5.Au.H4}_Qg
+             /\ SND(M5')
+             /\ secret({Idg,Au'},sub1,{U,Gw})
+end role
+
+role gateway (U,Gw: agent,
+              Hmac: hash_func,
+         Qca,Qg,Qu: public_key,
+         Dg,Du,Kug: symmetric_key,
+           SND,RCV: channel (dy))
+played_by Gw def=
+local
+State :nat,
+Idu,Idg,Certu,Su,
+Ts1,Lt1,N5,Au,H4:text,
+M5: message
+init State:= 1
+transition
+1. State = 1 /\ RCV(M5') =|>
+  State':= 2 /\ M5' := {Idg.N5.Au.H4}_Dg
+             /\ Au' := {Idu.Certu.Su.Ts1.Lt1}_Qca
+             /\ H4' := Hmac(Kug.Idg.N5.Au)
+             /\ witness(Gw,U,nodeU_gateway_n5,N5)
+             /\ witness(Gw,U,nodeU_gateway_lt1,Lt1) 
+end role
+
+role session (U,Gw: agent,
+              Hmac: hash_func,
+         Qca,Qg,Qu: public_key,
+         Dg,Du,Kug: symmetric_key)
+def=
+local SU,RU,SGw,RGw: channel(dy)
+composition
+  nodeU(U,Gw,Hmac,Qca,Qg,Qu,Dg,Du,Kug,SU,RU)
+/\gateway(U,Gw,Hmac,Qca,Qg,Qu,Dg,Du,Kug,SGw,RGw)
+end role
+
+role environment ()
+def=
+const    nodeU,gateway: agent,
+             qca,qg,qu: public_key,
+dg,du,kug,dgi,dui,kugi:symmetric_key,
+idu,idg,certu,certg,su,sg,
+ts0,ts1,lt0,lt1,n5,au,ag,h4: text,
+hmac: hash_func,
+nodeU_gateway_n5,nodeU_gateway_lt1,sub1: protocol_id
+intruder_knowledge = {nodeU,gateway,hmac,dgi,dui,qca,qg,qu}
+composition
+  session(nodeU,gateway,hmac,qca,qg,qu,dg,du,kug)
+/\session(nodeU,i,hmac,qca,qg,qu,dgi,dui,kugi)
+/\session(i,gateway,hmac,qca,qg,qu,dgi,dui,kugi)
+end role
+
+goal
+secrecy_of sub1
+authentication_on nodeU_gateway_n5
+authentication_on nodeU_gateway_lt1
+end goal
+environment ()
+
